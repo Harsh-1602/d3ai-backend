@@ -1,0 +1,1 @@
+"""Data schemas for the D3AI API.""" 

@@ -1,0 +1,23 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "app/main.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "app/main.py"
+    }
+  ],
+  "env": {
+    "MONGODB_URL": "@mongodb_url",
+    "DATABASE_NAME": "d3ai",
+    "VECTOR_DB_URL": "@vector_db_url",
+    "VECTOR_DB_COLLECTION": "drug_papers",
+    "NVIDIA_DOCKING_API_KEY": "@nvidia_docking_api_key",
+    "NVIDIA_DOCKING_API_URL": "@nvidia_docking_api_url"
+  }
+} 
