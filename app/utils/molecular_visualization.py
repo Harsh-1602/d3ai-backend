@@ -13,13 +13,13 @@ logger = logging.getLogger(__name__)
 def smiles_to_2d_image(smile: str, width: int = 300, height: int = 200, 
                       highlight_atoms: Optional[List[int]] = None) -> Optional[str]:
     """
-    Convert a SMILES string to a 2D molecular image in base64 format.
+    Convert a SMILES string to a 2D image in base64 format.
     
     Args:
-        smile: SMILES string representation of the molecule
-        width: Width of the output image
-        height: Height of the output image
-        highlight_atoms: List of atom indices to highlight in the visualization
+        smile: SMILES string representation of a molecule
+        width: Width of the image in pixels
+        height: Height of the image in pixels
+        highlight_atoms: Optional list of atom indices to highlight
         
     Returns:
         Base64 encoded PNG image as a string, or None if conversion fails
@@ -57,9 +57,10 @@ def smiles_to_2d_image(smile: str, width: int = 300, height: int = 200,
         
         # Get PNG data and convert to base64
         png_data = drawer.GetDrawingText()
-        base64_img = base64.b64encode(png_data).decode('utf-8')
         
-        return f"data:image/png;base64,{base64_img}"
+        # Return just the base64 encoded string without the prefix
+        # The frontend will add the prefix as needed
+        return base64.b64encode(png_data).decode('utf-8')
     
     except Exception as e:
         logger.error(f"Error creating 2D visualization for SMILES {smile}: {e}")
@@ -242,9 +243,10 @@ def create_molecule_grid_image(smiles_list: List[str],
         # Convert to base64
         buffered = BytesIO()
         img.save(buffered, format="PNG")
-        base64_img = base64.b64encode(buffered.getvalue()).decode('utf-8')
         
-        return f"data:image/png;base64,{base64_img}"
+        # Return just the base64 encoded string without the prefix
+        # The frontend will add the prefix as needed
+        return base64.b64encode(buffered.getvalue()).decode('utf-8')
         
     except Exception as e:
         logger.error(f"Error creating grid image: {e}")

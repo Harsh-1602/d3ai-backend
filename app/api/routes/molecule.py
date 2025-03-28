@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, Body, Query, Path
 from typing import List, Optional, Dict, Any
 from app.schemas.molecule import (
     Molecule, MoleculeCreate, MoleculeGenerationRequest, 
-    MoleculeValidationResult, BulkMoleculeValidationRequest, BulkMoleculeValidationResult
+    MoleculeValidationResult, BulkMoleculeValidationRequest, BulkMoleculeValidationResult,
+    NvidiaGenMolRequest
 )
 from app.services.molecule_service import MoleculeService
 from app.utils.molecular_visualization import (
@@ -31,6 +32,20 @@ async def generate_molecules(request: MoleculeGenerationRequest = Body(...)):
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generating molecules: {str(e)}")
+
+@router.post("/generate/nvidia-genmol", response_model=List[Molecule])
+async def generate_molecules_nvidia_genmol(request: NvidiaGenMolRequest = Body(...)):
+    """
+    Generate new molecules using NVIDIA GenMol API.
+    
+    This endpoint generates new molecules based on provided seed SMILES string
+    using NVIDIA's GenMol API.
+    """
+    try:
+        molecule_service = MoleculeService()
+        return await molecule_service.generate_molecules_nvidia_genmol(request)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating molecules with NVIDIA GenMol API: {str(e)}")
 
 @router.post("/validate", response_model=MoleculeValidationResult)
 async def validate_molecule(smile: str = Body(..., embed=True)):
@@ -121,8 +136,14 @@ async def visualize_molecule_2d(
     This endpoint converts a SMILES string to a 2D molecular image in base64 format.
     """
     try:
-        # Create 2D visualization
-        image = smiles_to_2d_image(smile, width, height)
+        molecule_service = MoleculeService()
+        
+        # Try using our PubChem approach first (more reliable)
+        image = await molecule_service.get_pubchem_image(smile)
+        
+        if not image:
+            # Fallback to local RDKit rendering if PubChem fails
+            image = smiles_to_2d_image(smile, width, height)
         
         if not image:
             raise HTTPException(status_code=400, detail="Failed to create 2D visualization")
@@ -259,4 +280,29 @@ async def get_molecule_properties_from_smile(smile: str = Body(..., embed=True))
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error calculating properties: {str(e)}") 
+        raise HTTPException(status_code=500, detail=f"Error calculating properties: {str(e)}")
+
+@router.post("/visualize/pubchem", response_model=Dict[str, Any])
+async def visualize_molecule_pubchem(
+    smile: str = Body(..., embed=True)
+):
+    """
+    Get a molecule visualization directly from PubChem.
+    
+    This endpoint fetches a 2D molecular image from PubChem in base64 format.
+    """
+    try:
+        molecule_service = MoleculeService()
+        
+        # Get image from PubChem
+        image = await molecule_service.get_pubchem_image(smile)
+        
+        if not image:
+            raise HTTPException(status_code=400, detail="Failed to fetch PubChem visualization")
+        
+        return {
+            "image": image,
+            "smile": smile
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching PubChem visualization: {str(e)}") 

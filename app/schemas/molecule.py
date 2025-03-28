@@ -52,4 +52,14 @@ class BulkMoleculeValidationResult(BaseModel):
     """Schema for the result of bulk molecule validation."""
     total: int = Field(..., description="Total number of molecules processed")
     valid_count: int = Field(..., description="Number of valid molecules")
-    results: List[MoleculeValidationResult] = Field(..., description="Validation results for each molecule") 
+    results: List[MoleculeValidationResult] = Field(..., description="Validation results for each molecule")
+
+class NvidiaGenMolRequest(BaseModel):
+    """Schema for requesting molecule generation from NVIDIA GenMol API."""
+    smiles: str = Field(..., description="SMILES string to use as seed")
+    num_molecules: int = Field(30, description="Number of molecules to generate")
+    temperature: str = Field("1", description="Temperature parameter for generation")
+    noise: str = Field("1", description="Noise parameter for generation")
+    step_size: int = Field(1, description="Step size parameter")
+    scoring: str = Field("QED", description="Scoring function to use (QED, logP, etc.)")
+    unique: bool = Field(False, description="Whether to generate unique molecules") 

@@ -3,13 +3,21 @@ from datetime import datetime
 import uuid
 from typing import List, Dict, Any, Optional
 from rdkit import Chem
-from rdkit.Chem import AllChem
+from rdkit.Chem import AllChem, Draw
+from rdkit.Chem.Draw import rdMolDraw2D
+import base64
+import io
 from bson.objectid import ObjectId
 from pymongo import MongoClient
 from pymongo.collection import Collection
+import requests
+import json
+import random
+import urllib.parse
+import aiohttp
 
 from app.core.config import settings
-from app.schemas.molecule import Molecule, MoleculeCreate, MoleculeValidationResult, BulkMoleculeValidationResult
+from app.schemas.molecule import Molecule, MoleculeCreate, MoleculeValidationResult, BulkMoleculeValidationResult, NvidiaGenMolRequest
 from app.utils.db import get_database
 
 logger = logging.getLogger(__name__)
@@ -98,6 +106,172 @@ class MoleculeService:
                 "created_at": datetime.now(),
                 "updated_at": datetime.now()
             })
+        
+        return molecules
+
+    async def generate_molecules_nvidia_genmol(self, request: NvidiaGenMolRequest) -> List[Molecule]:
+        """
+        Generate new molecules using NVIDIA GenMol API.
+        
+        Args:
+            request: NvidiaGenMolRequest with parameters for generation
+            
+        Returns:
+            List of generated molecules
+        """
+        logger.info(f"Generating molecules using NVIDIA GenMol API from SMILES: {request.smiles}")
+        
+        # Create the seed molecule for similarity comparison
+        seed_mol = Chem.MolFromSmiles(request.smiles)
+        if seed_mol:
+            # Calculate fingerprint for the seed molecule for similarity comparison
+            seed_fp = AllChem.GetMorganFingerprintAsBitVect(seed_mol, 2, nBits=2048)
+        
+        # NVIDIA GenMol API endpoint
+        # Note: API endpoints may change based on API version
+        api_urls = [
+            "https://health.api.nvidia.com/v1/biology/nvidia/genmol/generate",
+             # Another alternative
+        ]
+        
+        # Prepare the payload
+        # NVIDIA may expect different formats depending on the API version
+        payload = {
+            "smiles": request.smiles,
+            "num_molecules": request.num_molecules,
+            "temperature": request.temperature,
+            "noise": request.noise,
+            "step_size": request.step_size,
+            "scoring": request.scoring,
+            "unique": request.unique
+        }
+        
+        # Also try alternative format
+       
+        
+        # API headers
+        headers = {
+            "accept": "application/json",
+            "content-type": "application/json",
+            "authorization": f"Bearer {settings.NVIDIA_API_KEY}"
+        }
+        
+        last_error = None
+        for url in api_urls:
+            for current_payload in [payload]:
+                try:
+                    # Make the API call
+                    add_string = ".[*{20-20}]"
+                    current_payload["smiles"] = f"{current_payload['smiles']}{add_string}"
+                    logger.info(f"Trying NVIDIA GenMol API with URL: {url}")
+                    response = requests.post(url, json=current_payload, headers=headers, timeout=30)
+            
+                    response.raise_for_status()  # Raise exception for non-200 status codes
+                    
+                    # Parse the response
+                    result = response.json()
+                    
+                    # Create molecule objects from the API response
+                    molecules = []
+                    
+                    # Handle response based on format - different API versions may have different response structures
+                    if "status" in result and "molecules" in result:
+                        # Standard format
+                        for idx, mol_data in enumerate(result["molecules"]):
+                            if "smiles" in mol_data:
+                                mol_smiles = mol_data["smiles"]
+                                # Generate a name based on the index
+                                name = f"GenMol Generated {idx+1}"
+                                
+                                # Extract properties if available
+                                properties = {}
+                                if "score" in mol_data:
+                                    properties[request.scoring] = mol_data["score"]
+                                
+                                # Generate a unique ID
+                                molecule_id = str(uuid.uuid4())
+                                
+                                # Generate structure image URL from PubChem
+                                structure_img = await self.get_pubchem_image(mol_smiles)
+                                
+                                # Add image to properties
+                                if structure_img:
+                                    if not properties:
+                                        properties = {}
+                                    properties["image"] = structure_img
+                                
+                                # Calculate properties using RDKit
+                                mol = Chem.MolFromSmiles(mol_smiles)
+                                if mol:
+                                    try:
+                                        # Add computed properties using RDKit
+                                        from rdkit.Chem import Descriptors, Lipinski, DataStructs
+                                        properties.update({
+                                            "molecular_weight": round(Descriptors.MolWt(mol), 2),
+                                            "logP": round(Descriptors.MolLogP(mol), 2),
+                                            "num_h_donors": Lipinski.NumHDonors(mol),
+                                            "num_h_acceptors": Lipinski.NumHAcceptors(mol),
+                                            "num_rotatable_bonds": Descriptors.NumRotatableBonds(mol),
+                                            "tpsa": round(Descriptors.TPSA(mol), 2)
+                                        })
+                                        
+                                        # Calculate similarity to seed molecule
+                                        if seed_mol:
+                                            mol_fp = AllChem.GetMorganFingerprintAsBitVect(mol, 2, nBits=2048)
+                                            similarity = DataStructs.TanimotoSimilarity(seed_fp, mol_fp)
+                                            properties["similarity_to_seed"] = round(similarity, 3)
+                                            
+                                    except Exception as e:
+                                        logger.error(f"Error calculating molecular properties: {e}")
+                                
+                                # Create a molecule object
+                                molecule = {
+                                    "_id": molecule_id,
+                                    "id": molecule_id,
+                                    "smile": mol_smiles,
+                                    "name": name,
+                                    "description": f"Generated using NVIDIA GenMol API with {request.scoring} scoring",
+                                    "parent_drug_id": None,
+                                    "generation_method": "nvidia_genmol",
+                                    "is_valid": True,
+                                    "created_at": datetime.now(),
+                                    "updated_at": datetime.now(),
+                                    "properties": properties,
+                                    "structure_img": structure_img
+                                }
+                                
+                                molecules.append(molecule)
+                    print(f"Molecules: {molecules}")
+                    if molecules:
+                        logger.info(f"Successfully generated {len(molecules)} molecules using NVIDIA GenMol API at {url}")
+                        return molecules
+                
+                except Exception as e:
+                    logger.warning(f"Error generating molecules with NVIDIA GenMol API at {url}: {e}")
+                    last_error = e
+                    continue  # Try next URL or payload format
+        
+        # If we reach here, all attempts failed
+        logger.error(f"All attempts to generate molecules with NVIDIA GenMol API failed. Last error: {last_error}")
+        
+        # Generate dummy data as fallback
+        logger.info("Generating dummy data as fallback")
+        molecules = []
+        # for i in range(request.num_molecules):
+        #     molecules.append({
+        #         "_id": str(uuid.uuid4()),
+        #         "smile": request.smiles,  # Use the input SMILES as a placeholder
+        #         "name": f"GenMol Fallback {i+1}",
+        #         "description": "Dummy data (NVIDIA GenMol API unavailable)",
+        #         "parent_drug_id": None,
+        #         "generation_method": "dummy_data",
+        #         "is_valid": True,
+        #         "created_at": datetime.now(),
+        #         "updated_at": datetime.now(),
+        #         "properties": {
+        #             request.scoring: random.random()  # Random score between 0 and 1
+        #         }
+        #     })
         
         return molecules
 
@@ -280,3 +454,30 @@ class MoleculeService:
             logger.error(f"Error creating molecule: {e}")
             # Re-raise the exception for the API to handle
             raise 
+
+    async def get_pubchem_image(self, smiles: str) -> str:
+        """Fetch molecule image from PubChem and return as base64 encoded string"""
+        logger.info(f"Fetching PubChem image for SMILES: {smiles[:30]}...")
+        url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/smiles/{urllib.parse.quote(smiles)}/PNG"
+        print(f"URL: {url}")
+        try:
+            async with aiohttp.ClientSession() as session:
+                logger.debug(f"Sending request to PubChem: {url}")
+                async with session.get(url, timeout=10) as response:
+                    if response.status == 200:
+                        image_bytes = await response.read()
+                        image_size = len(image_bytes)
+                        logger.info(f"Successfully fetched PubChem image ({image_size} bytes)")
+                        # Return just the base64 encoded string without the prefix
+                        # The frontend will add the prefix as needed
+                        return base64.b64encode(image_bytes).decode('utf-8')
+                    else:
+                        error_text = await response.text()
+                        logger.warning(f"Failed to get PubChem image: status={response.status}, response={error_text[:100]}")
+                        return ""
+        except aiohttp.ClientError as e:
+            logger.error(f"Network error fetching PubChem image: {str(e)}")
+            return ""
+        except Exception as e:
+            logger.error(f"Unexpected error fetching PubChem image: {str(e)}")
+            return "" 

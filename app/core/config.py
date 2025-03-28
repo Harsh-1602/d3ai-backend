@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     MEGAMOLBERT_MODEL_PATH: str = Field(default=os.getenv("MEGAMOLBERT_MODEL_PATH", "./models/megamolbert"))
     NVIDIA_DOCKING_API_KEY: str = Field(default=os.getenv("NVIDIA_DOCKING_API_KEY", ""))
     NVIDIA_DOCKING_API_URL: str = Field(default=os.getenv("NVIDIA_DOCKING_API_URL", ""))
+    NVIDIA_API_KEY: str = Field(default=os.getenv("NVIDIA_API_KEY", "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"))
     
     # Vector Database settings
     VECTOR_DB_URL: str = Field(default=os.getenv("VECTOR_DB_URL", "localhost:6333"))
