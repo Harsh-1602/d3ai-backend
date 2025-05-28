@@ -61,5 +61,5 @@ class NvidiaGenMolRequest(BaseModel):
     temperature: str = Field("1", description="Temperature parameter for generation")
     noise: str = Field("1", description="Noise parameter for generation")
     step_size: int = Field(1, description="Step size parameter")
-    scoring: str = Field("QED", description="Scoring function to use (QED, logP, etc.)")
+    scoring: str = Field("QED", description="Scoring function to use (QED, LogP, etc.)")
     unique: bool = Field(False, description="Whether to generate unique molecules") 

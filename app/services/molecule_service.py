@@ -145,7 +145,7 @@ class MoleculeService:
             "scoring": request.scoring,
             "unique": request.unique
         }
-        
+        print(f"Payload: {payload}")
         # Also try alternative format
        
         
@@ -161,7 +161,7 @@ class MoleculeService:
             for current_payload in [payload]:
                 try:
                     # Make the API call
-                    add_string = ".[*{20-20}]"
+                    add_string = ".[*{20-25}]"
                     current_payload["smiles"] = f"{current_payload['smiles']}{add_string}"
                     logger.info(f"Trying NVIDIA GenMol API with URL: {url}")
                     response = requests.post(url, json=current_payload, headers=headers, timeout=30)

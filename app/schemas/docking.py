@@ -63,6 +63,37 @@ class DockingRequest(BaseModel):
     protein_id: str = Field(..., description="ID of the protein to dock with")
     exhaustiveness: Optional[int] = Field(8, description="Exhaustiveness of the docking search")
     num_modes: Optional[int] = Field(9, description="Number of binding modes to generate")
+
+# New schemas for NVIDIA DiffDock API
+class DiffDockRequest(BaseModel):
+    """Schema for requesting docking via NVIDIA DiffDock API."""
+    protein: str = Field(..., description="Protein structure data in PDB format")
+    ligand: str = Field(..., description="Ligand data as SMILES string or in SDF format")
+    ligand_file_type: str = Field("smiles", description="Type of ligand data: 'smiles' or 'sdf'")
+    num_poses: Optional[int] = Field(2, description="Number of binding poses to generate")
+    time_divisions: Optional[int] = Field(20, description="Time divisions for the optimization process")
+    steps: Optional[int] = Field(18, description="Number of denoising steps")
+    save_trajectory: Optional[bool] = Field(False, description="Whether to save the trajectory")
+    is_staged: Optional[bool] = Field(False, description="Whether to use staged sampling")
+
+class DiffDockResponse(BaseModel):
+    """Schema for the result of docking via NVIDIA DiffDock API."""
+    ligand_positions: List[str] = Field(..., description="SDF content for each predicted ligand pose")
+    position_confidence: List[float] = Field(..., description="Confidence score for each predicted pose (lower is better)")
+    status: str = Field(..., description="Status of the docking operation")
+    message: Optional[str] = Field(None, description="Error or additional message")
+
+class VisualizationRequest(BaseModel):
+    """Schema for requesting 3D visualization of docking results."""
+    protein: str = Field(..., description="Protein structure data in PDB format")
+    ligand_poses: List[str] = Field(..., description="SDF content for each predicted ligand pose")
+    confidence_scores: List[float] = Field(..., description="Confidence score for each predicted pose")
+
+class VisualizationResponse(BaseModel):
+    """Schema for the result of visualization generation."""
+    viewer_html: str = Field(..., description="HTML content for the 3D viewer")
+    status: str = Field(..., description="Status of the visualization generation")
+    message: Optional[str] = Field(None, description="Error or additional message")
     
 class DockingResult(BaseModel):
     """Schema for the result of docking."""
