@@ -311,30 +311,115 @@ VIEWER_TEMPLATE = """<!DOCTYPE html>
             top: 10px; 
             left: 10px; 
             background: rgba(255,255,255,0.8); 
-            padding: 15px; 
+            padding: 10px; 
             border-radius: 5px;
-            max-height: 90vh;
+            max-height: 85vh;
             overflow-y: auto;
             box-shadow: 0 2px 10px rgba(0,0,0,0.2);
             z-index: 100;
-            min-width: 200px;
+            min-width: 180px;
+            max-width: 200px;
+            font-size: 0.9rem;
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+        #controls.minimized {
+            transform: translateX(-95%);
+            opacity: 0.6;
+        }
+        #controls.minimized:hover {
+            opacity: 0.8;
+        }
+        #controls.minimized .control-panel,
+        #controls.minimized .debug-info {
+            display: none;
+        }
+        #controls.hidden {
+            display: none;
         }
         .control-panel {
-            margin-bottom: 15px;
+            margin-bottom: 10px;
         }
         h3 {
             margin-top: 0;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
+            font-size: 1.1rem;
+        }
+        .header-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        #toggle-controls {
+            background: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            width: 26px;
+            height: 26px;
+            padding: 2px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #toggle-controls:hover {
+            background: #0b7dda;
+        }
+        #close-controls {
+            background: #f44336;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            width: 26px;
+            height: 26px;
+            padding: 2px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-left: 5px;
+        }
+        #close-controls:hover {
+            background: #d32f2f;
+        }
+        #reopen-button {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 8px 12px;
+            cursor: pointer;
+            font-weight: bold;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 99;
+            display: none;
+        }
+        #reopen-button:hover {
+            background: #45a049;
+        }
+        #toggle-icon {
+            transition: transform 0.3s ease;
+        }
+        .minimized #toggle-icon {
+            transform: rotate(180deg);
         }
         button {
-            margin: 5px;
-            padding: 8px 12px;
+            margin: 3px;
+            padding: 6px 10px;
             cursor: pointer;
             border: none;
             background: #4CAF50;
             color: white;
             border-radius: 3px;
             font-weight: bold;
+            font-size: 0.8rem;
         }
         button:hover {
             background: #45a049;
@@ -345,32 +430,33 @@ VIEWER_TEMPLATE = """<!DOCTYPE html>
         }
         .debug-info {
             font-family: monospace;
-            font-size: 12px;
+            font-size: 11px;
             color: #666;
-            margin-top: 15px;
+            margin-top: 10px;
             border-top: 1px solid #ddd;
-            padding-top: 10px;
+            padding-top: 8px;
         }
         #debug-log {
-            max-height: 200px;
+            max-height: 150px;
             overflow-y: auto;
             background: #f5f5f5;
             padding: 5px;
             border-radius: 3px;
-            margin-top: 10px;
-            font-size: 11px;
+            margin-top: 8px;
+            font-size: 10px;
             white-space: pre-wrap;
         }
         .ligand-button {
             display: block;
             width: 100%;
-            margin: 5px 0;
-            padding: 8px;
+            margin: 3px 0;
+            padding: 6px;
             cursor: pointer;
             border: 1px solid #ddd;
             background: #f0f0f0;
             border-radius: 3px;
             text-align: left;
+            font-size: 0.8rem;
         }
         .ligand-button:hover {
             background: #e0e0e0;
@@ -380,55 +466,88 @@ VIEWER_TEMPLATE = """<!DOCTYPE html>
             color: white;
         }
         .confidence {
-            font-size: 0.8em;
+            font-size: 0.7em;
             display: inline-block;
-            margin-left: 5px;
+            margin-left: 3px;
         }
         .control-buttons {
             display: flex;
-            gap: 5px;
+            gap: 3px;
             flex-wrap: wrap;
             justify-content: space-between;
         }
         .view-options button {
             flex: 1;
-            min-width: 80px;
+            min-width: 70px;
             background: #2196F3;
+            font-size: 0.75rem;
+            padding: 5px 8px;
         }
         .view-options button:hover {
             background: #0b7dda;
+        }
+        .minimized-hint {
+            display: none;
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            transform: rotate(180deg);
+            position: absolute;
+            right: 5px;
+            top: 50%;
+            transform: translateY(-50%) rotate(180deg);
+            color: #333;
+            font-weight: bold;
+        }
+        #controls.minimized .minimized-hint {
+            display: block;
+        }
+        .controls-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .header-buttons {
+            display: flex;
+            align-items: center;
         }
     </style>
 </head>
 <body>
     <div id="viewport"></div>
-    <div id="controls">
-        <div class="control-panel">
-            <h3>DiffDock Results</h3>
-            <div class="control-buttons">
-                <button onclick="showAllLigands()" id="showAllBtn">Show All Poses</button>
-                <button onclick="hideAllLigands()" id="hideAllBtn">Hide All</button>
-            </div>
+    <button id="reopen-button">Show Controls</button>
+    # <div id="controls">
+    #     <div class="controls-header">
+    #         <h3>DiffDock</h3>
+    #         <div class="header-buttons">
+    #             <button id="toggle-controls" title="Minimize/Expand">◀</button>
+    #             <button id="close-controls" title="Close">✕</button>
+    #         </div>
+    #     </div>
+    #     <span class="minimized-hint">DiffDock</span>
+    #     <div class="control-panel">
+    #         <div class="control-buttons">
+    #             <button onclick="showAllLigands()" id="showAllBtn">Show All</button>
+    #             <button onclick="hideAllLigands()" id="hideAllBtn">Hide All</button>
+    #         </div>
             
-            <div class="view-options control-buttons">
-                <button onclick="resetView()">Reset View</button>
-                <button onclick="toggleSpin()" id="spinBtn">Start Spin</button>
-                <button onclick="toggleProtein()" id="proteinBtn">Hide Protein</button>
-                <button onclick="displayDebugInfo()">Show Debug Info</button>
-            </div>
-        </div>
+    #         <div class="view-options control-buttons">
+    #             <button onclick="resetView()">Reset</button>
+    #             <button onclick="toggleSpin()" id="spinBtn">Spin</button>
+    #             <button onclick="toggleProtein()" id="proteinBtn">Protein</button>
+    #         </div>
+    #     </div>
         
-        <div class="control-panel">
-            <h3>Ligand Poses</h3>
-            <div id="ligand-buttons"></div>
-        </div>
+    #     <div class="control-panel">
+    #         <h3>Poses</h3>
+    #         <div id="ligand-buttons"></div>
+    #     </div>
         
-        <div class="debug-info">
-            <div>Receptor: protein.pdb</div>
-            <div>Poses: <span id="pose-count">0</span></div>
-            <div id="debug-log" style="display: none;"></div>
-        </div>
-    </div>
+    #     <div class="debug-info">
+    #         <div>Poses: <span id="pose-count">0</span></div>
+    #         <div id="debug-log" style="display: none;"></div>
+    #     </div>
+    # </div>
 
     <script>
         // Initialize debugLog
@@ -440,6 +559,57 @@ VIEWER_TEMPLATE = """<!DOCTYPE html>
             debugLog.appendChild(logEntry);
             debugLog.scrollTop = debugLog.scrollHeight;
         }
+
+        // Add toggle controls functionality
+        document.getElementById('toggle-controls').addEventListener('click', function() {
+            const controls = document.getElementById('controls');
+            controls.classList.toggle('minimized');
+            
+            // Save state to localStorage
+            const isMinimized = controls.classList.contains('minimized');
+            localStorage.setItem('diffDockControlsMinimized', isMinimized);
+            
+            log("Controls panel " + (isMinimized ? "minimized" : "expanded"));
+        });
+        
+        // Add close button functionality
+        document.getElementById('close-controls').addEventListener('click', function() {
+            const controls = document.getElementById('controls');
+            controls.classList.add('hidden');
+            document.getElementById('reopen-button').style.display = 'block';
+            
+            // Save state to localStorage
+            localStorage.setItem('diffDockControlsHidden', 'true');
+            
+            log("Controls panel closed");
+        });
+        
+        // Add reopen button functionality
+        document.getElementById('reopen-button').addEventListener('click', function() {
+            const controls = document.getElementById('controls');
+            controls.classList.remove('hidden');
+            this.style.display = 'none';
+            
+            // Save state to localStorage
+            localStorage.setItem('diffDockControlsHidden', 'false');
+            
+            log("Controls panel reopened");
+        });
+
+        // Check saved state on load
+        document.addEventListener('DOMContentLoaded', function() {
+            const isMinimized = localStorage.getItem('diffDockControlsMinimized') === 'true';
+            const isHidden = localStorage.getItem('diffDockControlsHidden') === 'true';
+            
+            if (isMinimized) {
+                document.getElementById('controls').classList.add('minimized');
+            }
+            
+            if (isHidden) {
+                document.getElementById('controls').classList.add('hidden');
+                document.getElementById('reopen-button').style.display = 'block';
+            }
+        });
         
         function displayDebugInfo() {
             const debugLog = document.getElementById('debug-log');
